@@ -265,3 +265,4 @@ export default App;
 ![alt text](./assets/images/tanstackQuery-axios.png)
 
 here, we can now see tanstack query by default handle loading, error and data states. we don't need to manually create useState and useEffect for that.
+
