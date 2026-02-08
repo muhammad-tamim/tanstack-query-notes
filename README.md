@@ -20,7 +20,7 @@ npm i @tanstack/react-query
 
 ### Why Use TanStack Query?
 
-- without fetch + useState, and useEffect: 
+- with fetch + useState, and useEffect: 
 
 ```js
 import { useEffect, useState } from "react";
@@ -177,8 +177,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import './index.css'
 import App from './App.jsx'
 
+const queryClient = new QueryClient()
+
 createRoot(document.getElementById('root')).render(
-  
   <StrictMode>
     <QueryClientProvider client={queryClient}>
         <App />
