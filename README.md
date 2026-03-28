@@ -18,6 +18,7 @@
     - [DELETE:](#delete)
   - [Example 1:](#example-1)
   - [Example 2:](#example-2)
+- [Pagination:](#pagination)
 
 
 
@@ -984,3 +985,67 @@ app.listen(port, () => {
 - Frontend: https://github.com/muhammad-tamim/web-project-28-client 
 - Backend: https://github.com/muhammad-tamim/web-project-28-server
 
+# Pagination: 
+Tanstack Query provides built-in support for pagination. The key part is to use the `keepPreviousData` option in the useQuery hook. This allows you to keep showing the previous page's data while the new page's data is being fetched, which provides a better user experience. Means instead of showing a loading state when the page changes, it will keep showing the old data until the new data is loaded.
+
+```js
+import axios from "axios";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
+import { useState } from "react";
+
+const fetchUsers = async (page) => {
+  await new Promise((res) => setTimeout(res, 1500)); // simulate slow API
+  const res = await axios.get(`https://jsonplaceholder.typicode.com/users`, {
+    params: { _page: page, _limit: 3 }
+  });
+
+  return res.data;
+};
+
+function App() {
+  const [page, setPage] = useState(1);
+
+  const { data: users, isLoading, isError, error, isFetching } = useQuery({
+    queryKey: ["users", page],
+    queryFn: () => fetchUsers(page),
+    // 🔥 KEY PART
+    placeholderData: keepPreviousData,
+  });
+
+  if (isLoading) {
+    return <h2 className="text-center text-5xl">Loading......</h2>;
+  }
+
+  if (isError) {
+    return <h2 className="text-red-500">Error: {error.message}</h2>;
+  }
+
+  return (
+    <div>
+      <h1 className="text-2xl mb-4">Users - Page {page}</h1>
+
+      {users?.map((user) => (
+        <div key={user.id}>
+          <p>{user.name} | {user.email}</p>
+        </div>
+      ))}
+
+      {/* 🔽 Pagination Controls */}
+      <div className="mt-4 flex gap-4">
+        <button onClick={() => setPage((old) => Math.max(old - 1, 1))} disabled={page === 1} className="btn">
+          Previous
+        </button>
+
+        <button onClick={() => setPage((old) => old + 1)} className="btn">
+          Next
+        </button>
+      </div>
+
+      {/* 🔄 Background fetching indicator */}
+      {isFetching && <p className="text-sm">Fetching...</p>}
+    </div>
+  );
+}
+
+export default App;
+```
