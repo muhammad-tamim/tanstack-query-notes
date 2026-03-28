@@ -6,11 +6,20 @@
 - [HTTP Operations (CRUD):](#http-operations-crud)
     - [Why useQuery is NOT for POST, PUT/PATCH, DELETE:](#why-usequery-is-not-for-post-putpatch-delete)
     - [Example 1 (Query + Mutations Operations in Tanstack Query):](#example-1-query--mutations-operations-in-tanstack-query)
+    - [Example 2:](#example-2)
 
 # Introduction:
-TanStack Query is a server-state management library. It can handle data fetching, caching, background refetching, loading & error states, pagination & infinite scrolling, mutations and more. 
+TanStack Query is a server-state management library for React that simplifies handling asynchronous data from APIs.
 
-**Note:** It can completely replace manual useEffect and useState for data fetching in react applications.
+It provides built-in support for:
+- data fetching
+- mutations (POST, PUT, DELETE)
+- caching
+- background refetching
+- loading & error states
+- pagination & infinite queries
+
+**Note:** It replaces most manual data-fetching logic written with useEffect and useState
 
 ### Installation: 
 
@@ -272,6 +281,7 @@ here, we can now see tanstack query by default handle loading, error and data st
 
 # HTTP Operations (CRUD): 
 
+
 | HTTP        | TanStack      |
 | ----------- | ------------- |
 | GET         | `useQuery`    |
@@ -280,7 +290,7 @@ here, we can now see tanstack query by default handle loading, error and data st
 | DELETE      | `useMutation` |
 
 
-Note: In tanstack query GET operation is handled by useQuery hook and its called** Query operation**. while POST, PUT/PATCH and DELETE operations are handled by useMutation hook and its called **Mutation Operation**.
+Note: In tanstack query GET operation is handled by useQuery hook and its called **Query operation**. while POST, PUT/PATCH and DELETE operations are handled by useMutation hook and its called **Mutation Operation**.
 
 ### Why useQuery is NOT for POST, PUT/PATCH, DELETE: 
 
@@ -631,3 +641,7 @@ app.listen(port, () => {
     console.log(`Example app listening on port ${port}`)
 })
 ```
+
+### Example 2: 
+Frontend: https://github.com/muhammad-tamim/web-project-28-client 
+Backend: https://github.com/muhammad-tamim/web-project-28-server
