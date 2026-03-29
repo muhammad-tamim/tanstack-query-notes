@@ -16,6 +16,7 @@
     - [PUT:](#put)
     - [PATCH:](#patch)
     - [DELETE:](#delete)
+    - [Query Invalidation:](#query-invalidation)
   - [Example 1:](#example-1)
   - [Example 2:](#example-2)
 - [Pagination:](#pagination)
@@ -647,6 +648,96 @@ const { mutate: deleteUserMutation } = useMutation({
     queryClient.removeQueries({ queryKey: ["user", id] });
   },
 });
+```
+
+### Query Invalidation: 
+
+```js
+// Invalidate every query in the cache
+queryClient.invalidateQueries()
+// Invalidate every query with a key that starts with `todos`
+queryClient.invalidateQueries({ queryKey: ['todos'] })
+```
+
+```js
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+
+// Get QueryClient from the context
+const queryClient = useQueryClient()
+
+queryClient.invalidateQueries({ queryKey: ['todos'] })
+
+// Both queries below will be invalidated
+const todoListQuery = useQuery({
+  queryKey: ['todos'],
+  queryFn: fetchTodoList,
+})
+const todoListQuery = useQuery({
+  queryKey: ['todos', { page: 1 }],
+  queryFn: fetchTodoList,
+})
+```
+
+```js
+queryClient.invalidateQueries({
+  queryKey: ['todos', { type: 'done' }],
+})
+
+// The query below will be invalidated
+const todoListQuery = useQuery({
+  queryKey: ['todos', { type: 'done' }],
+  queryFn: fetchTodoList,
+})
+
+// However, the following query below will NOT be invalidated
+const todoListQuery = useQuery({
+  queryKey: ['todos'],
+  queryFn: fetchTodoList,
+})
+```
+
+```js
+queryClient.invalidateQueries({
+  queryKey: ['todos'],
+  exact: true,
+})
+
+// The query below will be invalidated
+const todoListQuery = useQuery({
+  queryKey: ['todos'],
+  queryFn: fetchTodoList,
+})
+
+// However, the following query below will NOT be invalidated
+const todoListQuery = useQuery({
+  queryKey: ['todos', { type: 'done' }],
+  queryFn: fetchTodoList,
+})
+```
+
+```js
+queryClient.invalidateQueries({
+  predicate: (query) =>
+    query.queryKey[0] === 'todos' && query.queryKey[1]?.version >= 10,
+})
+
+// The query below will be invalidated
+const todoListQuery = useQuery({
+  queryKey: ['todos', { version: 20 }],
+  queryFn: fetchTodoList,
+})
+
+// The query below will be invalidated
+const todoListQuery = useQuery({
+  queryKey: ['todos', { version: 10 }],
+  queryFn: fetchTodoList,
+})
+
+// However, the following query below will NOT be invalidated
+const todoListQuery = useQuery({
+  queryKey: ['todos', { version: 5 }],
+  queryFn: fetchTodoList,
+})
 ```
 
 ## Example 1: 
