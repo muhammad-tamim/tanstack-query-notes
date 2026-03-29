@@ -20,6 +20,9 @@
   - [Example 2:](#example-2)
 - [Pagination:](#pagination)
 - [Infinite Scrolling:](#infinite-scrolling)
+- [Initial Query Data vs Placeholder Query Data:](#initial-query-data-vs-placeholder-query-data)
+  - [Initial Data:](#initial-data)
+  - [Placeholder Data:](#placeholder-data)
 
 
 
@@ -1130,4 +1133,202 @@ function App() {
 }
 
 export default App;
+```
+
+# Initial Query Data vs Placeholder Query Data:
+For a normal query: 
+
+```js
+import axios from "axios";
+import { useQuery } from "@tanstack/react-query";
+
+const fetchUsers = async () => {
+  const res = await axios.get("https://jsonplaceholder.typicode.com/users");
+  return res.data;
+};
+
+function App() {
+  const { data: users, isLoading, isError, error } = useQuery({
+    queryKey: ["users"],
+    queryFn: fetchUsers,
+  });
+
+  if (isLoading) {
+    return <h2 className="text-center text-5xl">Loading......</h2>;
+  }
+
+  if (isError) {
+    return <h2 className="text-red-500">Error: {error.message}</h2>
+  }
+
+  return (
+    <div>
+      {users.map((user) => <div key={user.id}>
+        <p>{user.name} | {user.email}</p>
+      </div>
+      )}
+    </div>
+  );
+}
+
+export default App;
+```
+
+here Every time: Component mounts → Loading → Fetch → Show data
+
+But if we want to skip loading state on first mount and show some data before fetch completes, we can use two query options: 
+- `initialData`: Means we already have some real data to show before fetch, so we can show it immediately without loading state. but this data will be replaced by the fetched data once it arrives. It's useful when we have to show details page and for that details page we already have some data.
+  
+- `placeholderData`: Means we have some temporary data to show while the query is loading. This data is not used if the query function has already fetched data before. It is only shown during the loading state of the query. If the query function fails, the placeholderData will not be used and the error state will be set.
+
+**Note:** 
+- Use initialData when:
+  - data already exists
+  - you want instant real UI
+- Use placeholderData when:
+  - you need loading UI
+  - data is not available yet
+
+## Initial Data: 
+
+```jsx
+import axios from "axios";
+import { useQuery } from "@tanstack/react-query";
+import { Link } from "react-router";
+
+const fetchUsers = async () => {
+  const res = await axios.get("https://jsonplaceholder.typicode.com/users");
+  return res.data;
+};
+
+
+function App() {
+  const { data: users, isLoading, isError, error } = useQuery({
+    queryKey: ["users"],
+    queryFn: fetchUsers,
+  });
+
+  if (isLoading) {
+    return <h2 className="text-center text-5xl">Loading......</h2>;
+  }
+
+  if (isError) {
+    return <h2 className="text-red-500">Error: {error.message}</h2>
+  }
+
+  return (
+    <div>
+      {users.map((user) => <div key={user.id}>
+        <p>{user.name} | {user.email} | <Link to={`/details/${user.id}`}><button className="btn">Details</button></Link></p>
+      </div>
+      )}
+    </div>
+  );
+}
+
+export default App;
+```
+
+```jsx
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import axios from 'axios';
+import React from 'react';
+import { useParams } from 'react-router';
+
+const fetchUserById = async (id) => {
+    const res = await axios.get(
+        `https://jsonplaceholder.typicode.com/users/${id}`
+    );
+    return res.data;
+};
+
+const DetailsPage = () => {
+    const queryClient = useQueryClient();
+
+    const { id } = useParams()
+    const { data: user, isLoading, isError, error } = useQuery({
+        queryKey: ["user", id],
+        queryFn: () => fetchUserById(id),
+
+        // 🔥 USE EXISTING CACHE AS INITIAL DATA
+        initialData: () => {
+            const users = queryClient.getQueryData(["users"]);
+            return users?.find((u) => u.id === parseInt(id));
+        },
+
+        initialDataUpdatedAt: () =>
+            queryClient.getQueryState(["users"])?.dataUpdatedAt,
+
+        staleTime: 1000 * 60 * 5, // 5 minutes
+    });
+
+    if (isLoading) {
+        return <h2 className="text-center text-5xl">Loading......</h2>;
+    }
+
+    if (isError) {
+        return <h2 className="text-red-500">Error: {error.message}</h2>
+    }
+
+    return (
+        <div>
+            <h2 className="text-3xl font-bold mb-4">{user.name}</h2>
+            <p><strong>Email:</strong> {user.email}</p>
+            <p><strong>Phone:</strong> {user.phone}</p>
+            <p><strong>Website:</strong> {user.website}</p>
+        </div>
+    );
+};
+
+export default DetailsPage;
+```
+
+## Placeholder Data: 
+
+```jsx
+import { useQuery } from '@tanstack/react-query';
+import axios from 'axios';
+import React from 'react';
+import { useParams } from 'react-router';
+
+const fetchUserById = async (id) => {
+    const res = await axios.get(
+        `https://jsonplaceholder.typicode.com/users/${id}`
+    );
+    return res.data;
+};
+
+const DetailsPage = () => {
+    const { id } = useParams()
+    const { data: user, isLoading, isError, error } = useQuery({
+        queryKey: ["user", id],
+        queryFn: () => fetchUserById(id),
+
+        placeholderData: {
+            name: "Loading...",
+            email: "loading@example.com",
+            phone: "000000000",
+            website: "loading...",
+        },
+    });
+
+    if (isLoading) {
+        return <h2 className="text-center text-5xl">Loading......</h2>;
+    }
+
+    if (isError) {
+        return <h2 className="text-red-500">Error: {error.message}</h2>
+    }
+
+    return (
+        <div>
+            <h2 className="text-3xl font-bold mb-4">{user.name}</h2>
+            <p><strong>Email:</strong> {user.email}</p>
+            <p><strong>Phone:</strong> {user.phone}</p>
+            <p><strong>Website:</strong> {user.website}</p>
+        </div>
+    );
+};
+
+export default DetailsPage;
 ```
