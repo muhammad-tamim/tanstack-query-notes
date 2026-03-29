@@ -19,6 +19,7 @@
   - [Example 1:](#example-1)
   - [Example 2:](#example-2)
 - [Pagination:](#pagination)
+- [Infinite Scrolling:](#infinite-scrolling)
 
 
 
@@ -1043,6 +1044,87 @@ function App() {
 
       {/* 🔄 Background fetching indicator */}
       {isFetching && <p className="text-sm">Fetching...</p>}
+    </div>
+  );
+}
+
+export default App;
+```
+
+# Infinite Scrolling: 
+Infinite scrolling is a pattern where more data is loaded as the user scrolls down under the previous data, instead of having traditional pagination with new data loaded for each page.
+
+Tanstack Query also provides built-in support for infinite scrolling through the useInfiniteQuery hook. This is useful when you want to load more data as the user scrolls down, without having to click on a "Load More" button. The key part is to use the `getNextPageParam` option to tell Tanstack Query how to get the next page's parameters based on the last page's data. 
+
+
+```jsx
+import React, { useEffect } from "react";
+import { useInfiniteQuery } from "@tanstack/react-query";
+import axios from "axios";
+
+const fetchPhotos = async ({ pageParam = 1 }) => {
+  await new Promise((res) => setTimeout(res, 1500)); // simulate slow API
+  const res = await axios.get(
+    "https://jsonplaceholder.typicode.com/photos",
+    {
+      params: { _page: pageParam, _limit: 10 },
+    }
+  );
+  return res.data;
+};
+
+function App() {
+  const { data, error, fetchNextPage, hasNextPage, isFetching, isFetchingNextPage, status } = useInfiniteQuery({
+    queryKey: ["photos"],
+    queryFn: fetchPhotos,
+    initialPageParam: 1,
+    getNextPageParam: (lastPage, pages) => {
+      if (lastPage.length === 0) return undefined;
+      return pages.length + 1;
+    },
+  });
+
+  // 🔥 SIMPLE SCROLL LOGIC
+  useEffect(() => {
+    const handleScroll = () => {
+      const bottom =
+        window.innerHeight + window.scrollY >=
+        document.documentElement.scrollHeight - 100;
+
+      if (bottom && hasNextPage && !isFetchingNextPage) {
+        fetchNextPage();
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll);
+
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
+
+  if (status === "pending") return <p>Loading...</p>;
+  if (status === "error") return <p>Error: {error.message}</p>;
+
+  return (
+    <div>
+      <h1>Photos: {data.pages.flat().length}</h1>
+
+      {/* 🔹 render all pages */}
+      {data.pages.map((group, i) => (
+        <React.Fragment key={i}>
+          {group.map((photo) => (
+            <div key={photo.id}>
+              <p>{photo.title}</p>
+              <p>{photo.url}</p>
+              <p>{photo.thumbnailUrl}</p>
+            </div>
+          ))}
+        </React.Fragment>
+      ))}
+
+      {/* 🔹 loading state */}
+      {isFetchingNextPage && <p className="text-center text-red-500 text-6xl">Loading more...</p>}
+      {/* fetching state */}
+      {isFetching && !isFetchingNextPage && <p className="text-center text-blue-500 text-6xl">Fetching...</p>}
     </div>
   );
 }
