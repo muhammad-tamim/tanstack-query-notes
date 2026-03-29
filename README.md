@@ -24,6 +24,10 @@
 - [Initial Query Data vs Placeholder Query Data:](#initial-query-data-vs-placeholder-query-data)
   - [Initial Data:](#initial-data)
   - [Placeholder Data:](#placeholder-data)
+- [Prefetching:](#prefetching)
+  - [Example:](#example)
+    - [Example 1:](#example-1-1)
+    - [Example 2:](#example-2-1)
 
 
 
@@ -740,6 +744,8 @@ const todoListQuery = useQuery({
 })
 ```
 
+
+
 ## Example 1: 
 
 - Frontend: 
@@ -1422,4 +1428,135 @@ const DetailsPage = () => {
 };
 
 export default DetailsPage;
+```
+
+# Prefetching: 
+Prefetching = loading data into the cache before it’s needed.
+
+- Without prefetch: User clicks → fetch starts → loading spinner 😴
+- With prefetch: User clicks → data already cached → instant render ⚡
+
+
+## Example: 
+
+### Example 1: 
+
+```jsx
+// src/api/users.js
+import axios from "axios";
+
+export const fetchUsers = async () => {
+    const res = await axios.get("https://jsonplaceholder.typicode.com/users");
+    return res.data;
+};
+
+export const fetchUserById = async (id) => {
+    const res = await axios.get(
+        `https://jsonplaceholder.typicode.com/users/${id}`
+    );
+    return res.data;
+};
+```
+
+```jsx
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link } from "react-router";
+import { fetchUsers, fetchUserById } from "./api/users";
+
+function App() {
+  const queryClient = useQueryClient();
+
+  const { data: users, isLoading, isError, error } = useQuery({
+    queryKey: ["users"],
+    queryFn: fetchUsers,
+    staleTime: 1000 * 60 * 5, // optional but good
+  });
+
+  const prefetchUser = (id) => {
+    queryClient.prefetchQuery({
+      queryKey: ["user", id],
+      queryFn: () => fetchUserById(id),
+      staleTime: 1000 * 60 * 5,
+    });
+  };
+
+  if (isLoading) {
+    return <h2 className="text-center text-5xl">Loading......</h2>;
+  }
+
+  if (isError) {
+    return <h2 className="text-red-500">Error: {error.message}</h2>;
+  }
+
+  return (
+    <div>
+      {users.map((user) => (
+        <div key={user.id}>
+          <p>
+            {user.name} | {user.email} |{" "}
+            <Link
+              to={`/details/${user.id}`}
+              onMouseEnter={() => prefetchUser(user.id)}
+            >
+              <button className="btn">Details</button>
+            </Link>
+          </p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export default App;
+```
+
+```jsx
+import { useQuery } from "@tanstack/react-query";
+import { useParams } from "react-router";
+import { fetchUserById } from "./api/users";
+
+const DetailsPage = () => {
+    const { id } = useParams();
+    const idNum = Number(id); // ensure consistent query key
+
+    const { data: user, isLoading, isError, error } = useQuery({
+        queryKey: ["user", idNum],
+        queryFn: () => fetchUserById(idNum),
+        staleTime: 1000 * 60 * 5, // MUST match prefetch
+        // Prefetch only fires when data is older than the staleTime,
+       // so in a case like this you definitely want to set one
+    });
+
+    if (isLoading) {
+        return <h2 className="text-center text-5xl">Loading......</h2>;
+    }
+
+    if (isError) {
+        return <h2 className="text-red-500">Error: {error.message}</h2>;
+    }
+
+    return (
+        <div>
+            <h2 className="text-3xl font-bold mb-4">{user.name}</h2>
+            <p><strong>Email:</strong> {user.email}</p>
+            <p><strong>Phone:</strong> {user.phone}</p>
+            <p><strong>Website:</strong> {user.website}</p>
+        </div>
+    );
+};
+
+export default DetailsPage;
+```
+
+### Example 2: 
+
+```jsx
+const handleClick = async () => {
+  await queryClient.prefetchQuery({
+    queryKey: ["user", user.id],
+    queryFn: () => fetchUserById(user.id),
+  });
+
+  navigate(`/users/${user.id}`);
+};
 ```
