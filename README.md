@@ -7,28 +7,17 @@
       - [with axios + useState, and useEffect:](#with-axios--usestate-and-useeffect)
       - [with Tanstack Query + axios:](#with-tanstack-query--axios)
 - [HTTP Operations (CRUD):](#http-operations-crud)
-  - [Queries:](#queries)
-    - [Query key:](#query-key)
-      - [Rules for queryKey:](#rules-for-querykey)
-    - [Query Function:](#query-function)
-  - [Mutations:](#mutations)
-    - [POST:](#post)
-    - [PUT:](#put)
-    - [PATCH:](#patch)
-    - [DELETE:](#delete)
-    - [Query Invalidation:](#query-invalidation)
-  - [Example 1:](#example-1)
-  - [Example 2:](#example-2)
+  - [Query key:](#query-key)
+  - [Query Function:](#query-function)
+  - [Query Invalidation:](#query-invalidation)
 - [Pagination:](#pagination)
 - [Infinite Scrolling:](#infinite-scrolling)
 - [Initial Query Data vs Placeholder Query Data:](#initial-query-data-vs-placeholder-query-data)
   - [Initial Data:](#initial-data)
   - [Placeholder Data:](#placeholder-data)
 - [Prefetching:](#prefetching)
-  - [Example:](#example)
-    - [Example 1:](#example-1-1)
-    - [Example 2:](#example-2-1)
-
+  - [Example 1:](#example-1)
+  - [Example 2:](#example-2)
 
 
 # Setup: 
@@ -380,374 +369,6 @@ here, we can now see tanstack query by default handle loading, error and data st
 
 **Note:** In tanstack query GET operation is handled by useQuery hook and its called **Query operation**. while POST, PUT/PATCH and DELETE operations are handled by useMutation hook and its called **Mutation Operation**.
 
-## Queries: 
-In TanStack Query, GET operations are handled using the useQuery hook. It requires two core properties:
-- queryKey: unique identifier
-- queryFn: function that fetches data
-
-```jsx
-import axios from "axios";
-import { useQuery } from "@tanstack/react-query";
-
-const fetchUsers = async () => {
-  const res = await axios.get("https://jsonplaceholder.typicode.com/users");
-  return res.data;
-};
-
-function App() {
-  const { data: users, isLoading, isError, error } = useQuery({
-    queryKey: ["users"],
-    queryFn: fetchUsers,
-  });
-
-  if (isLoading) {
-    return <h2 className="text-center text-5xl">Loading......</h2>;
-  }
-
-  if (isError) {
-    return <h2 className="text-red-500">Error: {error.message}</h2>
-  }
-
-  return (
-    <div>
-      {users.map((user) => <div key={user.id}>
-        <p>{user.name} | {user.email}</p>
-      </div>
-      )}
-    </div>
-  );
-}
-
-export default App;
-```
-
-### Query key:
-queryKey is a unique identifier for a query. It is used internally for: 
-- caching
-- refetching
-- deduplication
-- sharing data across components
-
-#### Rules for queryKey: 
-- Must be stable and deterministic: 
-
-Here each query key is different to each others.
-
-```js
-queryKey: ["users"] ✅
-queryKey: ["users", userId] ✅
-queryKey: ["users", { page: 1 }] ✅
-queryKey: ['todo', 5, { preview: true }] ✅
-```
-
-- Always use array format: 
-  
-```js
-queryKey: ["users"] ✅
-```
-
-- Object keys are hashed deterministically: 
-
-This means that no matter the order of keys in objects, all of the following queries are considered equal.
-
-```js
-queryKey: ['todos', { status, page }]
-queryKey: ['todos', { page, status }]
-queryKey: ['todos', { page, status, other: undefined }]
-```
-
-but the following query keys are not equal because Array items order matters: 
-
-```js
-queryKey: ['todos', status, page]
-queryKey: ['todos', page, status]
-queryKey: ['todos', undefined, page, status]
-```
-
-**Note:** At scale, define keys centrally:
-
-```js
-const queryKeys = {
-  users: ["users"],
-  user: (id) => ["users", id],
-};
-```
-
-then use it: 
-
-```js
-queryKey: queryKeys.user(userId)
-```
-
-
-### Query Function: 
-A query function can be literally any function that returns a promise. The promise that is returned should either resolve the data or throw an error. means it's responsible for fetching data. 
-
-fetching users: 
-
-```js
-const fetchUsers = async () => {
-  const res = await axios.get("https://jsonplaceholder.typicode.com/users");
-  return res.data;
-};
-
-const { data: users, isLoading, isError, error } = useQuery({
-    queryKey: ["users"],
-    queryFn: fetchUsers,
-  });
-```
-
-or if we don't want to use axios: 
-
-```js
-const fetchUsers = async () => {
-  const res = await fetch("https://jsonplaceholder.typicode.com/users");
-  return res.json();
-};
-
-const { data: users, isLoading, isError, error } = useQuery({
-  queryKey: ["users"],
-  queryFn: fetchUsers,
-});
-```
-
-or if we don't want to use async/await: 
-
-```js
-const fetchUsers = () => { 
-  return fetch("https://jsonplaceholder.typicode.com/users")
-    .then(res => res.json())
-};
-
-const { data: users, isLoading, isError, error } = useQuery({
-  queryKey: ["users"],
-  queryFn: fetchUsers,
-});
-
-/*
- * OR
- const fetchUsers = () =>
-  fetch("https://jsonplaceholder.typicode.com/users")
-    .then(res => res.json()); 
-*/
-```
-
-Below All of the following are valid query function configurations:
-
-```js
-useQuery({ queryKey: ['todos'], queryFn: fetchAllTodos })
-useQuery({ queryKey: ['todos', todoId], queryFn: () => fetchTodoById(todoId) })
-useQuery({
-  queryKey: ['todos', todoId],
-  queryFn: async () => {
-    const data = await fetchTodoById(todoId)
-    return data
-  },
-})
-useQuery({
-  queryKey: ['todos', todoId],
-  queryFn: ({ queryKey }) => fetchTodoById(queryKey[1]),
-})
-```
-
-## Mutations: 
-In TanStack Query POST, PUT/PATCH and DELETE operations are handled by useMutation hook. It also requires two core properties: 
-- mutationFn → function that performs the API request
-- onSuccess → runs after a successful mutation (used for cache updates)
-
-### POST: 
-
-```js
-const createUser = async (newUser) => {
-  const res = await axios.post("/api/users", newUser);
-  return res.data;
-};
-
-const queryClient = useQueryClient();
-
-const { mutate: createUserMutation } = useMutation({
-  mutationFn: createUser,
-  onSuccess: () => {
-    queryClient.invalidateQueries({ queryKey: ["users"] });
-  },
-});
-```
-
-then: 
-
-```js
-createUserMutation({ name: "Tamim", email: "tamim@example.com" });
-```
-
-or if we don't destructure it we need to follow this: 
-
-```js
-const createUser = async (newUser) => {
-  const res = await axios.post("/api/users", newUser);
-  return res.data;
-};
-
-const queryClient = useQueryClient();
-
-const createUserMutation  = useMutation({
-  mutationFn: createUser,
-  onSuccess: () => {
-    queryClient.invalidateQueries({ queryKey: ["users"] });
-  },
-});
-```
-
-then: 
-
-```js
-createUserMutation.mutate({ name: "Tamim", email: "tamim@example.com" });
-```
-
-### PUT: 
-
-```js
-const updateUser = async ({ id, data }) => {
-  const res = await axios.put(`/api/users/${id}`, data);
-  return res.data;
-};
-
-const { mutate: updateUserMutation } = useMutation({
-  mutationFn: updateUser,
-  onSuccess: () => {
-    queryClient.invalidateQueries({ queryKey: ["users"] });
-    queryClient.invalidateQueries({ queryKey: ["user", id] });
-  },
-});
-```
-
-### PATCH: 
-
-```js
-const patchUser = async ({ id, data }) => {
-  const res = await axios.patch(`/api/users/${id}`, data);
-  return res.data;
-};
-
-const { mutate: patchUserMutation } = useMutation({
-  mutationFn: patchUser,
-  onSuccess: () => {
-    queryClient.invalidateQueries({ queryKey: ["users"] });
-    queryClient.invalidateQueries({ queryKey: ["user", id] });
-  },
-});
-```
-
-### DELETE: 
-
-```js
-const deleteUser = async (id) => {
-  await axios.delete(`/api/users/${id}`);
-  return id;
-};
-
-const { mutate: deleteUserMutation } = useMutation({
-  mutationFn: deleteUser,
-  onSuccess: () => {
-    queryClient.invalidateQueries({ queryKey: ["users"] });
-    queryClient.removeQueries({ queryKey: ["user", id] });
-  },
-});
-```
-
-### Query Invalidation: 
-
-```js
-// Invalidate every query in the cache
-queryClient.invalidateQueries()
-// Invalidate every query with a key that starts with `todos`
-queryClient.invalidateQueries({ queryKey: ['todos'] })
-```
-
-```js
-import { useQuery, useQueryClient } from '@tanstack/react-query'
-
-// Get QueryClient from the context
-const queryClient = useQueryClient()
-
-queryClient.invalidateQueries({ queryKey: ['todos'] })
-
-// Both queries below will be invalidated
-const todoListQuery = useQuery({
-  queryKey: ['todos'],
-  queryFn: fetchTodoList,
-})
-const todoListQuery = useQuery({
-  queryKey: ['todos', { page: 1 }],
-  queryFn: fetchTodoList,
-})
-```
-
-```js
-queryClient.invalidateQueries({
-  queryKey: ['todos', { type: 'done' }],
-})
-
-// The query below will be invalidated
-const todoListQuery = useQuery({
-  queryKey: ['todos', { type: 'done' }],
-  queryFn: fetchTodoList,
-})
-
-// However, the following query below will NOT be invalidated
-const todoListQuery = useQuery({
-  queryKey: ['todos'],
-  queryFn: fetchTodoList,
-})
-```
-
-```js
-queryClient.invalidateQueries({
-  queryKey: ['todos'],
-  exact: true,
-})
-
-// The query below will be invalidated
-const todoListQuery = useQuery({
-  queryKey: ['todos'],
-  queryFn: fetchTodoList,
-})
-
-// However, the following query below will NOT be invalidated
-const todoListQuery = useQuery({
-  queryKey: ['todos', { type: 'done' }],
-  queryFn: fetchTodoList,
-})
-```
-
-```js
-queryClient.invalidateQueries({
-  predicate: (query) =>
-    query.queryKey[0] === 'todos' && query.queryKey[1]?.version >= 10,
-})
-
-// The query below will be invalidated
-const todoListQuery = useQuery({
-  queryKey: ['todos', { version: 20 }],
-  queryFn: fetchTodoList,
-})
-
-// The query below will be invalidated
-const todoListQuery = useQuery({
-  queryKey: ['todos', { version: 10 }],
-  queryFn: fetchTodoList,
-})
-
-// However, the following query below will NOT be invalidated
-const todoListQuery = useQuery({
-  queryKey: ['todos', { version: 5 }],
-  queryFn: fetchTodoList,
-})
-```
-
-
-
-## Example 1: 
-
 - Backend: 
 
 ```js
@@ -1083,9 +704,171 @@ export default HomePage;
 
 ![alt text](./assets/images/example-1.png)
 
-## Example 2: 
-- Frontend: https://github.com/muhammad-tamim/web-project-28-client 
-- Backend: https://github.com/muhammad-tamim/web-project-28-server
+
+Here, 
+
+In Queries (GET) we use useQuery hook, it requires two core properties: 
+- queryKey: unique identifier
+- queryFn: function that fetches data
+
+And in Mutation (POST, PUT/PATCH, DELETE) we use useMutation hook, it also requires two core properties: 
+- mutationFn → function that fetches data
+- onSuccess → runs after a successful mutation (used for query invalidation, delete etc.)
+
+## Query key:
+queryKey is a unique identifier for a query. It is used internally for: 
+- caching
+- refetching
+- deduplication
+- sharing data across components
+
+Here each query key is different to each others.
+
+```js
+queryKey: ["users"] ✅
+queryKey: ["users", userId] ✅
+queryKey: ["users", { page: 1 }] ✅
+queryKey: ['todo', 5, { preview: true }] ✅
+```
+
+**Note:** Object keys are hashed deterministically, means that no matter the order of keys in objects, all of the following queries are considered equal.
+
+```js
+queryKey: ['todos', { status, page }]
+queryKey: ['todos', { page, status }]
+queryKey: ['todos', { page, status, other: undefined }]
+```
+
+but the following query keys are not equal because Array items order matters: 
+
+```js
+queryKey: ['todos', status, page]
+queryKey: ['todos', page, status]
+queryKey: ['todos', undefined, page, status]
+```
+
+**Note:** At scale, define keys centrally:
+
+```js
+const queryKeys = {
+  users: ["users"],
+  user: (id) => ["users", id],
+};
+```
+
+then use it: 
+
+```js
+queryKey: queryKeys.user(userId)
+```
+
+
+## Query Function: 
+A query function can be literally any function that returns a promise. The promise that is returned should either resolve the data or throw an error. means it's responsible for fetching data. 
+
+fetching users: 
+
+```js
+const fetchUsers = async () => {
+  const res = await axios.get("https://jsonplaceholder.typicode.com/users");
+  return res.data;
+};
+
+const { data: users, isLoading, isError, error } = useQuery({
+    queryKey: ["users"],
+    queryFn: fetchUsers,
+  });
+```
+
+or if we don't want to use axios: 
+
+```js
+const fetchUsers = async () => {
+  const res = await fetch("https://jsonplaceholder.typicode.com/users");
+  return res.json();
+};
+
+const { data: users, isLoading, isError, error } = useQuery({
+  queryKey: ["users"],
+  queryFn: fetchUsers,
+});
+```
+
+or if we don't want to use async/await: 
+
+```js
+const fetchUsers = () => { 
+  return fetch("https://jsonplaceholder.typicode.com/users")
+    .then(res => res.json())
+};
+
+const { data: users, isLoading, isError, error } = useQuery({
+  queryKey: ["users"],
+  queryFn: fetchUsers,
+});
+
+/*
+ * OR
+ const fetchUsers = () =>
+  fetch("https://jsonplaceholder.typicode.com/users")
+    .then(res => res.json()); 
+*/
+```
+
+Below All of the following are valid query function configurations:
+
+```js
+useQuery({ queryKey: ['todos'], queryFn: fetchAllTodos })
+useQuery({ queryKey: ['todos', todoId], queryFn: () => fetchTodoById(todoId) })
+useQuery({
+  queryKey: ['todos', todoId],
+  queryFn: async () => {
+    const data = await fetchTodoById(todoId)
+    return data
+  },
+})
+useQuery({
+  queryKey: ['todos', todoId],
+  queryFn: ({ queryKey }) => fetchTodoById(queryKey[1]),
+})
+```
+
+## Query Invalidation: 
+
+- Invalidate every query in the cache: 
+
+```js
+queryClient.invalidateQueries()
+```
+
+- Invalidate every query with a key that starts with `notes`:
+
+```js
+onSuccess: () => {
+  queryClient.invalidateQueries({ queryKey: ['notes'] })
+}
+
+/*
+// Both queries below will be invalidated
+
+  queryKey: ['notes'],
+  queryKey: ['notes', { page: 1 }],
+  queryKey: ['notes', { type: 'done' }]
+*/
+```
+
+- Invalidate only the query with the exact key that is `notes`:
+
+```js
+queryClient.invalidateQueries({
+  queryKey: ['todos'],
+  exact: true,
+})
+
+// queryKey: ['todos'], // will be invalidated
+// queryKey: ['todos', { page: 1 }], // will NOT be invalidated
+
+```
 
 # Pagination: 
 Tanstack Query provides built-in support for pagination. The key part is to use the `keepPreviousData` option in the useQuery hook. This allows you to keep showing the previous page's data while the new page's data is being fetched, which provides a better user experience. Means instead of showing a loading state when the page changes, it will keep showing the old data until the new data is loaded.
@@ -1437,10 +1220,7 @@ Prefetching = loading data into the cache before it’s needed.
 - Without prefetch: User clicks → fetch starts → loading spinner 😴
 - With prefetch: User clicks → data already cached → instant render ⚡
 
-
-## Example: 
-
-### Example 1: 
+## Example 1: 
 
 ```jsx
 // src/api/users.js
@@ -1549,7 +1329,7 @@ const DetailsPage = () => {
 export default DetailsPage;
 ```
 
-### Example 2: 
+## Example 2: 
 
 ```jsx
 const handleClick = async () => {
